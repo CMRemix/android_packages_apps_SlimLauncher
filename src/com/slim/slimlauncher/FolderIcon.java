@@ -21,7 +21,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -29,13 +28,10 @@ import android.graphics.CornerPathEffect;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.graphics.drawable.shapes.RectShape;
-import android.graphics.drawable.shapes.RoundRectShape;
-import android.graphics.drawable.shapes.Shape;
 import android.os.Looper;
 import android.os.Parcelable;
 import android.util.AttributeSet;
@@ -57,7 +53,7 @@ import com.slim.slimlauncher.settings.SettingsProvider;
 import java.util.ArrayList;
 
 /**
- * An icon that can appear on in the workspace representing an {@link UserFolder}.
+ * An icon that can appear on in the workspace representing an {@link FolderIcon}.
  */
 public class FolderIcon extends FrameLayout implements FolderListener {
     private Launcher mLauncher;
@@ -786,12 +782,15 @@ public class FolderIcon extends FrameLayout implements FolderListener {
                 if (mLongPressHelper.hasPerformedLongPress()) {
                     return result;
                 }
-                if (value != 0) {
-                    if (downY - event.getRawY() >= 10.0) {
-                        mLauncher.onClickFolderIcon(this, true);
+                if (MotionEvent.ACTION_CANCEL != event.getAction()) {
+                    if (value != 0) {
+                        if (downY - event.getRawY() >=
+                                Utilities.convertDpToPixel(50, getContext())) {
+                            mLauncher.onClickFolderIcon(this, true);
+                        }
                     }
+                    mLongPressHelper.cancelLongPress();
                 }
-                mLongPressHelper.cancelLongPress();
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (!Utilities.pointInView(this, event.getX(), event.getY(), mSlop)) {

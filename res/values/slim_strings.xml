@@ -66,6 +66,8 @@
     <!-- Homescreen Settings -->
     <string name="homescreen_title">Homescreen</string>
     <string name="show_search_bar_title">Show search bar</string>
+    <string name="show_shadow_title">Show shadow</string>
+    <string name="show_shadow_summary">Most noticeable on light wallpapers</string>
 
     <!-- Hide icon labels -->
     <string name="hide_icon_labels_title">Hide icon labels</string>
@@ -79,6 +81,7 @@
     <string name="drawer_style_paged">Paged</string>
     <string name="drawer_style_vertical">Vertical</string>
     <string name="drawer_style_vertical_folder">Vertical folders</string>
+    <string name="drawer_background_title">Drawer background color</string>
 
     <!-- Dock Settings -->
     <string name="dock_title">Dock</string>

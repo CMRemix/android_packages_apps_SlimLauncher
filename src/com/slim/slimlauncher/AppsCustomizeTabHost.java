@@ -16,27 +16,13 @@
 
 package com.slim.slimlauncher;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
 import android.content.Context;
-import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TabHost;
-import android.widget.TabWidget;
-import android.widget.TextView;
-
-import java.util.ArrayList;
 
 public class AppsCustomizeTabHost extends FrameLayout implements LauncherTransitionable, Insettable  {
     static final String LOG_TAG = "AppsCustomizeTabHost";
@@ -84,6 +70,7 @@ public class AppsCustomizeTabHost extends FrameLayout implements LauncherTransit
      */
     @Override
     protected void onFinishInflate() {
+        super.onFinishInflate();
         mPagedView = (AppsCustomizePagedView) findViewById(R.id.apps_customize_pane_content);
         mContent = findViewById(R.id.content);
     }

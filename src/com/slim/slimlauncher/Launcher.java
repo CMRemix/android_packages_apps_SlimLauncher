@@ -57,7 +57,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -68,6 +67,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.StrictMode;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -97,7 +97,6 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.Interpolator;
 import android.view.animation.OvershootInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Advanceable;
@@ -117,6 +116,7 @@ import com.slim.slimlauncher.compat.UserHandleCompat;
 import com.slim.slimlauncher.compat.UserManagerCompat;
 import com.slim.slimlauncher.settings.SettingsActivity;
 import com.slim.slimlauncher.settings.SettingsProvider;
+import com.slim.slimlauncher.util.ColorUtils;
 import com.slim.slimlauncher.util.GestureHelper;
 
 import java.io.DataInputStream;
@@ -529,7 +529,6 @@ public class Launcher extends Activity
     }
 
     private void initializeDynamicGrid() {
-        LauncherAppState.setApplicationContext(getApplicationContext());
         LauncherAppState app = LauncherAppState.getInstance();
         LauncherAppState.getLauncherProvider().setLauncherProviderChangeListener(this);
 
@@ -575,6 +574,7 @@ public class Launcher extends Activity
         mModel.startLoader(true, mWorkspace.getCurrentPage());
 
         mAppDrawerAdapter.reset();
+        mAppDrawer.invalidate();
         updateScrubberVisibility();
     }
 
@@ -591,12 +591,6 @@ public class Launcher extends Activity
             return mLauncherCallbacks.hasCustomContentToLeft();
         }
         return false;
-    }
-
-    public void updateOverviewPanel() {
-        View defaultScreenPanel = mOverviewPanel.findViewById(R.id.default_home_screen_panel);
-
-        defaultScreenPanel.setVisibility(mWorkspace.getPageCount() > 1 ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -1552,6 +1546,13 @@ public class Launcher extends Activity
                 }
             });
             settingsButton.setOnTouchListener(getHapticFeedbackTouchListener());
+            settingsButton.setOnLongClickListener(new OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    startActivity(new Intent(Settings.ACTION_SETTINGS));
+                    return true;
+                }
+            });
         } else {
             settingsButton.setVisibility(View.GONE);
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) widgetButton.getLayoutParams();
@@ -1571,7 +1572,7 @@ public class Launcher extends Activity
         mOverviewPanel.setAlpha(0f);
 
         // Setup the workspace
-        mWorkspace.setHapticFeedbackEnabled(false);
+        mWorkspace.setHapticFeedbackEnabled(true);
         mWorkspace.setOnLongClickListener(this);
         mWorkspace.setup(dragController);
         dragController.addDragListener(mWorkspace);
@@ -2109,6 +2110,20 @@ public class Launcher extends Activity
         setWaitingForResult(false);
     }
 
+    private void onClickAllAppsShortcut(boolean haptic) {
+        if (haptic) {
+            mWorkspace.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+        }
+        if (mWorkspace.isInOverviewMode()) {
+            mWorkspace.enterOverviewMode(true);
+        }
+        if (isAllAppsVisible()) {
+            showWorkspace(true);
+        } else {
+            showAllApps(true, AppsCustomizePagedView.ContentType.Applications, false);
+        }
+    }
+
     @Override
     protected void onNewIntent(Intent intent) {
         long startTime = 0;
@@ -2118,16 +2133,13 @@ public class Launcher extends Activity
         super.onNewIntent(intent);
 
         getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
 
         if (intent.getBooleanExtra(ShortcutHelper.SLIM_LAUNCHER_SHORTCUT, false)  &&
                 Intent.ACTION_VIEW.equals(intent.getAction())) {
             String value = intent.getStringExtra(ShortcutHelper.SHORTCUT_VALUE);
             if (value.equals(ShortcutHelper.SHORTCUT_ALL_APPS)) {
-                if (isAllAppsVisible()) {
-                    showWorkspace(true);
-                } else if (mState == State.WORKSPACE) {
-                    showAllApps(true, AppsCustomizePagedView.ContentType.Applications, false);
-                }
+                onClickAllAppsShortcut(true);
             } else if (value.equals(ShortcutHelper.SHORTCUT_OVERVIEW)) {
                 if (mWorkspace.isInOverviewMode()) {
                     mWorkspace.exitOverviewMode(true);
@@ -3523,8 +3535,11 @@ public class Launcher extends Activity
     }
 
     private void setWorkspaceBackground(boolean workspace) {
-        mLauncherView.setBackground(workspace ?
-                mWorkspaceBackgroundDrawable : null);
+        if (SettingsProvider.getBoolean(this, SettingsProvider.KEY_SHOW_SHADOWS, true)) {
+            mLauncherView.setBackground(null);
+        } else {
+            mLauncherView.setBackground(workspace ? mWorkspaceBackgroundDrawable : null);
+        }
     }
 
     protected void changeWallpaperVisiblity(boolean visible) {
@@ -3647,7 +3662,7 @@ public class Launcher extends Activity
             toView = mAppsCustomizeTabHost;
         }
 
-        final ArrayList<View> layerViews = new ArrayList<View>();
+        final ArrayList<View> layerViews = new ArrayList<>();
 
         Workspace.State workspaceState = contentType == AppsCustomizePagedView.ContentType.Widgets ?
                 Workspace.State.OVERVIEW_HIDDEN : Workspace.State.NORMAL_HIDDEN;
@@ -3676,10 +3691,17 @@ public class Launcher extends Activity
             } else {
                 if (mDrawerType == AppDrawerListAdapter.DrawerType.VERTICAL ||
                         mDrawerType == AppDrawerListAdapter.DrawerType.VERTICAL_FOLDER) {
-                    revealView.setBackgroundColor(res.getColor(R.color.app_drawer_background));
-                    updateStatusBarColor(res.getColor(R.color.app_drawer_background));
+                    int color = SettingsProvider.getInt(this,
+                            SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE);
+                    revealView.setBackgroundColor(color);
+                    updateStatusBarColor(color);
+                    updateNavigationBarColor(color);
                 } else {
-                    revealView.setBackground(res.getDrawable(R.drawable.quantum_panel));
+                    Drawable d = res.getDrawable(R.drawable.quantum_panel);
+                    d.setColorFilter(SettingsProvider.getInt(this,
+                                    SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE),
+                            PorterDuff.Mode.MULTIPLY);
+                    revealView.setBackground(d);
                 }
             }
 
@@ -3793,7 +3815,14 @@ public class Launcher extends Activity
                 public void onAnimationStart(Animator animation) {
                     if (mAppsCustomizeContent.getContentType()
                             == AppsCustomizePagedView.ContentType.Applications) {
-                        updateStatusBarColor(res.getColor(R.color.app_drawer_drag_background));
+                        if (mDrawerType != AppDrawerListAdapter.DrawerType.PAGED) {
+                            int color = ColorUtils.darker(
+                                    SettingsProvider.getInt(getApplicationContext(),
+                                            SettingsProvider.KEY_DRAWER_BACKGROUND,
+                                            Color.WHITE), 0.5f);
+                            updateStatusBarColor(color);
+                            updateNavigationBarColor(color);
+                        }
                     }
                 }
 
@@ -3810,7 +3839,8 @@ public class Launcher extends Activity
                     if (content != null) {
                         content.setPageBackgroundsVisible(true);
                     } else {
-                        toView.setBackgroundColor(res.getColor(R.color.app_drawer_background));
+                        toView.setBackgroundColor(SettingsProvider.getInt(getApplicationContext(),
+                                SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE));
                     }
 
                     // Hide the search bar
@@ -3868,8 +3898,13 @@ public class Launcher extends Activity
             toView.bringToFront();
             if (mAppsCustomizeContent.getContentType()
                     == AppsCustomizePagedView.ContentType.Applications) {
-                updateStatusBarColor(res.getColor(R.color.app_drawer_drag_background));
-                toView.setBackgroundColor(res.getColor(R.color.app_drawer_background));
+                if (mDrawerType != AppDrawerListAdapter.DrawerType.PAGED) {
+                    int color = SettingsProvider.getInt(this,
+                            SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE);
+                    updateStatusBarColor(color);
+                    updateNavigationBarColor(color);
+                    toView.setBackgroundColor(color);
+                }
             }
 
             if (!springLoaded && !LauncherAppState.getInstance().isScreenLarge()) {
@@ -3972,10 +4007,14 @@ public class Launcher extends Activity
                 } else {
                     if (mDrawerType == AppDrawerListAdapter.DrawerType.VERTICAL ||
                             mDrawerType == AppDrawerListAdapter.DrawerType.VERTICAL_FOLDER) {
-                        revealView.setBackgroundColor(res.getColor(
-                                R.color.app_drawer_background));
+                        revealView.setBackgroundColor(SettingsProvider.getInt(this,
+                                SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE));
                     } else {
-                        revealView.setBackground(res.getDrawable(R.drawable.quantum_panel));
+                        Drawable d = res.getDrawable(R.drawable.quantum_panel);
+                        d.setColorFilter(SettingsProvider.getInt(this,
+                                        SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE),
+                                PorterDuff.Mode.MULTIPLY);
+                        revealView.setBackground(d);
                     }
                 }
 
@@ -3990,6 +4029,7 @@ public class Launcher extends Activity
                 } else {
                     fromView.setBackgroundColor(Color.TRANSPARENT);
                     updateStatusBarColor(Color.TRANSPARENT);
+                    updateNavigationBarColor(Color.TRANSPARENT);
                 }
 
                 revealView.setTranslationY(0);
@@ -4117,7 +4157,8 @@ public class Launcher extends Activity
                     if (content != null) {
                         content.setPageBackgroundsVisible(true);
                     } else {
-                        fromView.setBackgroundColor(res.getColor(R.color.app_drawer_background));
+                        fromView.setBackgroundColor(SettingsProvider.getInt(getApplicationContext(),
+                                SettingsProvider.KEY_DRAWER_BACKGROUND, Color.WHITE));
                     }
                     // Unhide side pages
                     int count = content != null ? content.getChildCount() : 0;
@@ -4175,6 +4216,7 @@ public class Launcher extends Activity
                     == AppsCustomizePagedView.ContentType.Applications) {
                 fromView.setBackgroundColor(Color.TRANSPARENT);
                 updateStatusBarColor(Color.TRANSPARENT, 0);
+                updateStatusBarColor(Color.TRANSPARENT);
             }
             dispatchOnLauncherTransitionPrepare(fromView, animated, true);
             dispatchOnLauncherTransitionStart(fromView, animated, true);
@@ -4248,6 +4290,8 @@ public class Launcher extends Activity
     }
 
     public void onWorkspaceShown(boolean animated) {
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
     }
 
     public void showAllApps(boolean animated, AppsCustomizePagedView.ContentType contentType,
@@ -5443,31 +5487,6 @@ public class Launcher extends Activity
         return true;
     }
 
-    protected boolean shouldClingFocusHotseatApp() {
-        return false;
-    }
-    protected String getFirstRunClingSearchBarHint() {
-        return "";
-    }
-    protected String getFirstRunCustomContentHint() {
-        return "";
-    }
-    protected int getFirstRunFocusedHotseatAppDrawableId() {
-        return -1;
-    }
-    protected ComponentName getFirstRunFocusedHotseatAppComponentName() {
-        return null;
-    }
-    protected int getFirstRunFocusedHotseatAppRank() {
-        return -1;
-    }
-    protected String getFirstRunFocusedHotseatAppBubbleTitle() {
-        return "";
-    }
-    protected String getFirstRunFocusedHotseatAppBubbleDescription() {
-        return "";
-    }
-
     /**
      * To be overridden by subclasses to indicate that there is an activity to launch
      * before showing the standard launcher experience.
@@ -5633,6 +5652,19 @@ public class Launcher extends Activity
         final Window window = getWindow();
         ObjectAnimator animator = ObjectAnimator.ofInt(window,
                 "statusBarColor", window.getStatusBarColor(), color);
+        animator.setEvaluator(new ArgbEvaluator());
+        animator.setDuration(duration);
+        animator.start();
+    }
+
+    private void updateNavigationBarColor(int color) {
+        updateNavigationBarColor(color, 300);
+    }
+
+    private void updateNavigationBarColor(int color, int duration) {
+        final Window window = getWindow();
+        ObjectAnimator animator = ObjectAnimator.ofInt(window,
+                "navigationBarColor", window.getNavigationBarColor(), color);
         animator.setEvaluator(new ArgbEvaluator());
         animator.setDuration(duration);
         animator.start();

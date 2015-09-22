@@ -25,6 +25,7 @@ public interface SettingsKeys {
     public static final String KEY_HOMESCREEN_GRID = "homescreen_grid";
     public static final String KEY_HOMESCREEN_HIDE_LABELS = "homescreen_hide_icon_labels";
     public static final String KEY_HOMESCREEN_ICON_SIZE = "homescreen_icon_size";
+    public static final String KEY_SHOW_SHADOWS = "show_shadows";
 
     // General
     public static final String KEY_NOTIFICATION_BADGES = "notification_badges";
@@ -37,6 +38,7 @@ public interface SettingsKeys {
     public static final String KEY_DRAWER_HIDE_LABELS = "drawer_hide_icon_labels";
     public static final String KEY_DRAWER_SORT_MODE = "drawer_sort_mode";
     public static final String KEY_DRAWER_ICON_SIZE = "drawer_icon_size";
+    String KEY_DRAWER_BACKGROUND = "drawer_background";
 
     // Dock
     public static final String KEY_DOCK_ICONS = "dock_icon_count";
